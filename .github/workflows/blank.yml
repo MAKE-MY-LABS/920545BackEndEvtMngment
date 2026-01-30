@@ -67,4 +67,3 @@ jobs:
           echo "sprint_lines=$delta" >> $GITHUB_ENV
 
       - name: Output sprint code lines
-        run: echo "Sprint lines of code change: ${{ env.sprint_lines }}"
