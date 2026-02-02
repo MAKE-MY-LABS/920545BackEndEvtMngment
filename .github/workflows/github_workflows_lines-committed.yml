@@ -1,0 +1,44 @@
+# This workflow counts the number of lines committed by each user today
+
+name: Lines Committed by User (Daily)
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  count-lines:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get today's date in ISO format
+        id: date
+        run: echo "today=$(date -u +'%Y-%m-%d')" >> $GITHUB_OUTPUT
+
+      - name: Get lines committed by each user today
+        run: |
+          echo "Lines committed by user for ${{ steps.date.outputs.today }}:"
+          git fetch --prune --unshallow || true
+          # Set up list of all users who committed today
+          users=$(git log --since="${{ steps.date.outputs.today }}T00:00:00" --until="${{ steps.date.outputs.today }}T23:59:59" --format="%aN" | sort | uniq)
+          if [ -z "$users" ]; then
+            echo "No commits found for today."
+            exit 0
+          fi
+          for user in $users; do
+            # Get all commit hashes by this user today
+            commits=$(git log --since="${{ steps.date.outputs.today }}T00:00:00" --until="${{ steps.date.outputs.today }}T23:59:59" --author="$user" --format="%H")
+            lines=0
+            for sha in $commits; do
+              # Count 'added' lines for each commit by this user
+              lines_this_commit=$(git show --oneline --stat --format="" $sha | grep '|' | awk '{print $3}' | grep -Eo '[0-9]+' | paste -sd+ - | bc || echo 0)
+              lines=$((lines + lines_this_commit))
+            done
+            echo "$user: $lines lines changed today"
+          done
